@@ -1,0 +1,867 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>가치의 무게 — 무역 시뮬레이션</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#14171C;
+    --paper:#F2EFE9;
+    --muted:#8B8478;
+    --kraft:#C89B5C;
+    --kraft-dark:#4A3A28;
+    --tech:#5FA8D3;
+    --tech-dark:#16324A;
+    --stamp:#E4572E;
+    --stamp-dark:#8f2c14;
+  }
+  *{ box-sizing:border-box; }
+  html,body{ height:100%; }
+  body{
+    margin:0;
+    background:
+      radial-gradient(circle at 15% 10%, #1b1f27 0%, var(--ink) 45%),
+      var(--ink);
+    color:var(--paper);
+    font-family:'Noto Sans KR', system-ui, sans-serif;
+    min-height:100vh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:24px;
+  }
+  #app{ width:100%; max-width:640px; }
+  .display{ font-family:'Black Han Sans', 'Noto Sans KR', sans-serif; letter-spacing:0.5px; }
+  .card{
+    background:#1B1E25;
+    border:1px solid #2B2F38;
+    border-radius:14px;
+    padding:32px 28px;
+    box-shadow:0 24px 60px -30px rgba(0,0,0,0.7);
+  }
+  .eyebrow{ color:var(--muted); font-size:13px; margin-bottom:6px; }
+  h1.display{ font-size:32px; margin:0 0 6px; line-height:1.15; }
+  h2.display{ font-size:26px; margin:0 0 4px; }
+  p.desc{ color:#B8B2A6; font-size:14.5px; line-height:1.65; margin:0 0 22px; }
+
+  .btn{
+    display:inline-flex; align-items:center; justify-content:center; gap:8px;
+    width:100%; padding:16px 20px; border-radius:10px; border:none;
+    font-family:'Noto Sans KR', sans-serif; font-weight:700; font-size:16px;
+    cursor:pointer; transition:transform .12s ease, filter .12s ease; color:var(--paper);
+  }
+  .btn:active{ transform:scale(0.97); }
+  .btn:disabled{ opacity:0.35; cursor:not-allowed; }
+  .btn-row{ display:flex; gap:10px; }
+  .btn-ghost{ background:transparent; border:1px solid #383D48; color:#C9C4B8; font-weight:500; }
+  .btn-kraft{ background:linear-gradient(180deg, var(--kraft), #A87F42); color:#2A2013; }
+  .btn-tech{ background:linear-gradient(180deg, var(--tech), #3D82AC); color:#0E2233; }
+  .btn-stamp{ background:linear-gradient(180deg, var(--stamp), #C0421F); color:#fff; }
+
+  input[type=text], input[type=number]{
+    width:100%; padding:14px 16px; border-radius:10px; border:1px solid #383D48;
+    background:#12151B; color:var(--paper); font-family:'Noto Sans KR', sans-serif;
+    font-size:16px; margin-bottom:14px;
+  }
+  input:disabled{ opacity:0.6; }
+  label.field-label{ display:block; font-size:13px; color:#9C968A; margin-bottom:6px; font-weight:700; }
+
+  .role-pick{ display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:18px; }
+  .role-card{ border-radius:12px; padding:20px 14px; cursor:pointer; border:2px solid transparent; text-align:center; }
+  .role-card.dev{ background:linear-gradient(155deg, var(--kraft-dark), #2E2415); }
+  .role-card.adv{ background:linear-gradient(155deg, var(--tech-dark), #0C1A28); }
+  .role-card.selected.dev{ border-color:var(--kraft); }
+  .role-card.selected.adv{ border-color:var(--tech); }
+  .role-card .icon{ font-size:34px; display:block; margin-bottom:8px; }
+  .role-card .title{ font-weight:900; font-size:16px; }
+  .role-card .sub{ font-size:12px; color:#9C968A; margin-top:4px; }
+
+  .timer-bar{ display:flex; justify-content:space-between; align-items:center; margin-bottom:22px; padding-bottom:16px; border-bottom:1px dashed #34394370; }
+  .timer{ font-family:'Black Han Sans', sans-serif; font-size:30px; letter-spacing:1px; }
+  .badge{ font-size:12px; padding:6px 12px; border-radius:20px; font-weight:700; }
+  .badge.dev{ background:var(--kraft-dark); color:var(--kraft); }
+  .badge.adv{ background:var(--tech-dark); color:var(--tech); }
+
+  .count-hero{ text-align:center; margin:18px 0; }
+  .count-hero .num{ font-family:'Black Han Sans', sans-serif; font-size:56px; line-height:1; }
+  .count-hero .num.dev{ color:var(--kraft); }
+  .count-hero .num.adv{ color:var(--tech); }
+  .count-hero .label{ color:#9C968A; font-size:14px; margin-top:6px; }
+
+  .progress-track{ height:14px; background:#12151B; border-radius:8px; overflow:hidden; margin:6px 0 4px; border:1px solid #2B2F38; }
+  .progress-fill{ height:100%; transition:width .18s ease; }
+  .progress-fill.dev{ background:var(--kraft); }
+
+  .steps{ display:flex; gap:6px; margin:14px 0 20px; flex-wrap:wrap; }
+  .step-dot{ flex:1; min-width:60px; padding:9px 4px; border-radius:8px; text-align:center; font-size:11px; font-weight:700; color:#6F695E; background:#12151B; border:1px solid #2B2F38; }
+  .step-dot.done{ background:var(--tech-dark); color:var(--tech); border-color:var(--tech); }
+  .step-dot.active{ background:var(--tech); color:#0E2233; border-color:var(--tech); }
+
+  .table{ width:100%; border-collapse:collapse; margin:14px 0 22px; }
+  .table th, .table td{ text-align:left; padding:10px 8px; font-size:13.5px; border-bottom:1px solid #2B2F38; }
+  .table th{ color:#8B8478; font-weight:700; font-size:12px; }
+  .table td.num{ text-align:right; font-family:'Black Han Sans', sans-serif; font-size:16px; }
+
+  .stamp-reveal{ text-align:center; padding:18px 0; border-bottom:1px dashed #34394370; margin-bottom:18px; animation:stampIn .35s cubic-bezier(.2,1.4,.4,1); }
+  .stamp-reveal .price{ font-family:'Black Han Sans', sans-serif; font-size:30px; color:var(--stamp); }
+  .stamp-reveal .item{ font-size:13px; color:#9C968A; margin-top:2px; }
+  @keyframes stampIn{
+    0%{ transform:scale(2.2) rotate(-8deg); opacity:0; }
+    60%{ transform:scale(0.95) rotate(2deg); opacity:1; }
+    100%{ transform:scale(1) rotate(0deg); opacity:1; }
+  }
+
+  .value-bars{ margin:20px 0; }
+  .value-bar-row{ margin-bottom:16px; }
+  .value-bar-row .vb-label{ display:flex; justify-content:space-between; font-size:13px; margin-bottom:6px; }
+  .value-bar-row .vb-label b{ font-family:'Black Han Sans', sans-serif; font-size:17px; font-weight:normal; }
+  .value-bar-track{ height:22px; background:#12151B; border-radius:6px; overflow:hidden; border:1px solid #2B2F38; }
+  .value-bar-fill{ height:100%; border-radius:6px 0 0 6px; transition:width .8s cubic-bezier(.2,.8,.3,1); }
+  .value-bar-fill.dev{ background:linear-gradient(90deg, var(--kraft-dark), var(--kraft)); }
+  .value-bar-fill.adv{ background:linear-gradient(90deg, var(--tech-dark), var(--tech)); }
+
+  .shock-box{ background:linear-gradient(155deg, var(--stamp-dark), #3a140a); border:1px solid var(--stamp); border-radius:12px; padding:20px; text-align:center; margin-top:8px; margin-bottom:22px; }
+  .shock-box .num{ font-family:'Black Han Sans', sans-serif; font-size:44px; color:#FFD9C8; line-height:1.1; }
+  .shock-box .txt{ font-size:14px; color:#F2C9BA; margin-top:6px; }
+
+  .winner-banner{ text-align:center; font-family:'Black Han Sans', sans-serif; font-size:24px; color:var(--stamp); margin:4px 0 18px; letter-spacing:0.5px; }
+  .footer-link{ text-align:center; margin-top:18px; font-size:12px; color:#5C574C; cursor:pointer; }
+  .footer-link:hover{ color:#9C968A; }
+  .hint{ font-size:12px; color:#6F695E; margin-top:-8px; margin-bottom:18px; line-height:1.6; }
+  .spinner{ width:34px; height:34px; border-radius:50%; border:3px solid #2B2F38; border-top-color:var(--stamp); margin:0 auto 18px; animation:spin 0.8s linear infinite; }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
+
+  /* 폰 목업 */
+  .phone-mock{ margin:0 auto 14px; width:150px; }
+  .phone-cam{
+    width:16px; height:16px; border-radius:50%; margin:0 auto 8px;
+    background:#12151B; border:2px solid #384656;
+    transition:background .2s ease, border-color .2s ease, box-shadow .2s ease;
+  }
+  .phone-cam.on{ background:var(--tech); border-color:var(--tech); box-shadow:0 0 10px 1px rgba(95,168,211,.55); }
+  .phone-screen{
+    width:150px; height:250px; background:#0E2233; border:4px solid #24384A; border-radius:20px;
+    position:relative; overflow:hidden;
+  }
+  .phone-logo{
+    position:absolute; top:14px; left:0; right:0; text-align:center;
+    font-family:'Black Han Sans', sans-serif; font-size:14px; color:var(--tech);
+    padding:0 10px; letter-spacing:0.5px; word-break:break-word; line-height:1.3;
+  }
+  .ui-slot{
+    position:absolute; width:26px; height:26px; margin:-13px 0 0 -13px;
+    border-radius:8px; border:2px dashed #384656;
+  }
+  .ui-slot.editable{ cursor:pointer; }
+  .ui-slot.filled{ border-style:solid; border-color:var(--tech); background:var(--tech); box-shadow:0 0 8px rgba(95,168,211,.5); }
+
+  @keyframes boxPop{
+    0%{ transform:scale(0.6); opacity:0; }
+    70%{ transform:scale(1.08); opacity:1; }
+    100%{ transform:scale(1); opacity:1; }
+  }
+  .box-svg-pop{ animation:boxPop .4s cubic-bezier(.3,1.6,.5,1); }
+
+  /* 퀴즈 */
+  input.quiz-blank{ margin-bottom:0; }
+  input.quiz-blank.correct{ border-color:#4c9a52; background:#1e3a22; color:#9fe6a4; }
+  input.quiz-blank.incorrect{ border-color:#9a4c4c; background:#3a1e1e; color:#e69f9f; }
+  .blank-row{ display:flex; align-items:center; gap:8px; margin-bottom:10px; }
+  .blank-row input{ flex:1; }
+  .blank-suffix{ font-weight:700; color:#C9C4B8; white-space:nowrap; }
+  .quiz-opt{
+    flex:1; padding:12px 8px; border-radius:8px; border:1px solid #383D48;
+    background:#12151B; color:#C9C4B8; font-weight:700; font-size:13.5px; cursor:pointer;
+  }
+  .quiz-opt:disabled{ cursor:default; }
+  .quiz-opt.correct{ background:#1e3a22; border-color:#4c9a52; color:#9fe6a4; }
+  .quiz-opt.incorrect{ background:#3a1e1e; border-color:#9a4c4c; color:#e69f9f; }
+  .quiz-item{ background:#12151B; border:1px solid #2B2F38; border-radius:10px; padding:14px; margin-bottom:12px; }
+  .quiz-item .qi-title{ font-weight:900; margin-bottom:4px; }
+  .quiz-item .qi-desc{ font-size:12.5px; color:#9C968A; margin-bottom:10px; }
+  .answer-box{ background:#12151B; border:1px solid #2B2F38; border-radius:10px; padding:14px; margin-bottom:18px; font-size:13px; line-height:1.8; }
+  .answer-box b{ color:var(--tech); }
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script>
+// ---------- 설정값 (필요하면 이 값만 바꾸세요) ----------
+const SHIRT_STEPS = 10;
+const PHONE_STEP_LABELS = ['로고 만들기','화면 UI 디자인','카메라 기능 추가','포장 마무리'];
+const MIN_UI_ELEMENTS = 9;
+const SHIRT_PRICE = 1000;
+const PHONE_PRICE = 100000;
+const DEFAULT_DURATION = 180; // 초
+const TSHIRT_PATH = "M30,15 L40,8 Q50,14 60,8 L70,15 L88,30 L75,42 L70,35 L70,90 L30,90 L30,35 L25,42 L12,30 Z";
+const SLOT_POS = [
+  {x:25,y:48},{x:50,y:48},{x:75,y:48},
+  {x:25,y:66},{x:50,y:66},{x:75,y:66},
+  {x:25,y:84},{x:50,y:84},{x:75,y:84}
+];
+const QUIZ1_ITEMS = [
+  {id:'high', desc:'대체하기 어려운 기술이나 디자인이 들어 있어 값이 비싸게 매겨지는 상품', answer:'고부가가치'},
+  {id:'low', desc:'특별한 기술 없이 누구나 쉽게 만들 수 있어 값이 낮게 매겨지는 상품', answer:'저부가가치'}
+];
+const QUIZ2_ITEMS = [
+  {id:'coffee_bean', title:'커피 원두', desc:'수확한 상태 그대로 가공 없이 수출하는 커피 원두', answer:'low', explain:'가공되지 않은 원재료라서 누구나 쉽게 구할 수 있고 대체하기 쉬워요.'},
+  {id:'coffee_brand', title:'브랜드 커피', desc:'특별한 레시피와 브랜드 이미지를 입혀 파는 시그니처 음료', answer:'high', explain:'레시피·브랜드·매장 경험이 더해져 원두 값보다 훨씬 비싸게 팔려요.'},
+  {id:'raw_cotton', title:'면 원단', desc:'가공하지 않은 상태로 수출하는 면직물', answer:'low', explain:'원재료 그대로라 기술이나 디자인이 더해지지 않았어요.'},
+  {id:'smartphone', title:'프리미엄 스마트폰', desc:'디자인, 소프트웨어, 브랜드가 집약된 완제품', answer:'high', explain:'대체하기 어려운 기술과 디자인이 들어가 있어 높은 가격이 매겨져요.'},
+  {id:'luxury_bag', title:'명품 브랜드 가방', desc:'가죽 자체보다 디자인과 브랜드 가치가 강조된 가방', answer:'high', explain:'소재 원가보다 브랜드와 디자인이 가치를 훨씬 크게 높여요.'}
+];
+
+// ---------- 상태 ----------
+let screen = 'select';
+let me = { role:null, group:'', studentId:'' };
+
+// 개발도상국 상태
+let shirtProgress = 0, shirtCount = 0;
+
+// 선진국 상태
+let phoneStep = 0, phoneCount = 0;
+let logoText = '';
+let logoError = '';
+let uiElements = [];
+let cameraAdded = false;
+let packagingAnim = false;
+
+// 퀴즈 상태
+let q1Submitted = false, q1HighVal = '', q1LowVal = '';
+let quizAnswers = {};
+
+let gameConfig = null;
+let tickInterval = null, pollInterval = null;
+let latestGroups = {};
+let banner = '';
+
+const app = document.getElementById('app');
+
+function fmtTime(sec){
+  sec = Math.max(0, sec);
+  const m = Math.floor(sec/60), s = sec%60;
+  return String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
+}
+function fmtWon(n){ return n.toLocaleString('ko-KR') + '원'; }
+function escapeHtml(str){
+  return String(str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function render(){ app.innerHTML = TEMPLATES[screen](); }
+
+// ---------- 시각 자료 ----------
+function shirtSvg(progress, steps){
+  const pct = Math.min(100, Math.round(progress/steps*100));
+  return `
+    <svg viewBox="0 0 100 100" width="150" height="150" style="display:block;margin:0 auto 4px;">
+      <rect x="4" y="4" width="92" height="92" rx="6" fill="var(--kraft)" fill-opacity="0.10" stroke="var(--kraft)" stroke-opacity="0.3" stroke-width="1.5" stroke-dasharray="4 3"/>
+      <path d="${TSHIRT_PATH}" fill="none" stroke="#6b5c44" stroke-opacity="0.4" stroke-width="1.4" stroke-dasharray="2.5 2.5"/>
+      <path d="${TSHIRT_PATH}" pathLength="100" fill="var(--kraft)" fill-opacity="${(progress/steps*0.92).toFixed(2)}"
+        stroke="var(--kraft-dark)" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"
+        stroke-dasharray="100" stroke-dashoffset="${100-pct}"
+        style="transition:stroke-dashoffset .25s ease, fill-opacity .25s ease;"></path>
+    </svg>
+  `;
+}
+
+function phoneMock(showUi, showCamera, editableSlots){
+  const logoContent = logoText.trim() ? escapeHtml(logoText) : '로고 문구';
+  let slotsHtml = '';
+  if(editableSlots){
+    slotsHtml = SLOT_POS.map((p,i)=>{
+      const filled = uiElements.includes(i);
+      return `<div class="ui-slot editable ${filled?'filled':''}" style="left:${p.x}%; top:${p.y}%;" onclick="toggleSlot(${i})"></div>`;
+    }).join('');
+  } else if(showUi){
+    slotsHtml = uiElements.map(i=>{
+      const p = SLOT_POS[i];
+      return `<div class="ui-slot filled" style="left:${p.x}%; top:${p.y}%;"></div>`;
+    }).join('');
+  }
+  const camHtml = showCamera ? `<div class="phone-cam ${cameraAdded?'on':''}"></div>` : '';
+  return `
+    <div class="phone-mock">
+      ${camHtml}
+      <div class="phone-screen">
+        <div id="logoPreview" class="phone-logo">${logoContent}</div>
+        ${slotsHtml}
+      </div>
+    </div>
+  `;
+}
+
+function openBoxSvg(){
+  return `
+    <svg viewBox="0 0 150 90" width="150" height="70" style="display:block;margin:6px auto 0;">
+      <rect x="15" y="35" width="120" height="45" rx="3" fill="#6b4f2b" stroke="#4A3A28" stroke-width="2"/>
+      <path d="M15,35 L45,10 L75,35 Z" fill="#a87f42" stroke="#4A3A28" stroke-width="2"/>
+      <path d="M135,35 L105,10 L75,35 Z" fill="#c89b5c" stroke="#4A3A28" stroke-width="2"/>
+    </svg>
+  `;
+}
+
+function closedBoxSvg(){
+  return `
+    <svg class="box-svg-pop" viewBox="0 0 150 120" width="150" height="120" style="display:block;margin:10px auto;">
+      <rect x="15" y="30" width="120" height="80" rx="4" fill="#6b4f2b" stroke="#4A3A28" stroke-width="2"/>
+      <rect x="15" y="60" width="120" height="10" fill="#4A3A28" opacity="0.35"/>
+      <rect x="65" y="30" width="20" height="80" fill="#E4572E" opacity="0.9"/>
+      <rect x="15" y="62" width="120" height="16" fill="#E4572E" opacity="0.9"/>
+      <text x="75" y="75" text-anchor="middle" font-family="'Noto Sans KR', sans-serif" font-size="16" font-weight="700" fill="#fff">✔</text>
+    </svg>
+  `;
+}
+
+// ---------- 화면 템플릿 ----------
+const TEMPLATES = {
+  select(){
+    const devSel = me.role==='dev' ? 'selected' : '';
+    const advSel = me.role==='adv' ? 'selected' : '';
+    return `
+      <div class="card">
+        <div class="eyebrow">세계시민과 지리 · 무역 시뮬레이션</div>
+        <h1 class="display">가치의 무게</h1>
+        <p class="desc">같은 3분, 다른 결과물. 개발도상국은 손으로, 선진국은 기술로 만듭니다.<br>생산이 끝나기 전까지 가격은 아무도 모릅니다.</p>
+        <div class="role-pick">
+          <div class="role-card dev ${devSel}" onclick="pickRole('dev')">
+            <span class="icon">✂️</span>
+            <div class="title">개발도상국</div>
+            <div class="sub">종이를 잘라 티셔츠를 만들어요</div>
+          </div>
+          <div class="role-card adv ${advSel}" onclick="pickRole('adv')">
+            <span class="icon">📱</span>
+            <div class="title">선진국</div>
+            <div class="sub">디자인 · 기능을 더해 폰을 만들어요</div>
+          </div>
+        </div>
+        <label class="field-label">조 번호 (조원끼리는 똑같이, 다른 조와는 겹치지 않게)</label>
+        <input type="text" id="groupInput" placeholder="예: 1" value="${me.group}">
+        <div class="hint">조원 각자 자기 기기로 접속해서 같은 조 번호를 입력하면 결과가 자동으로 합산돼요.</div>
+        <button class="btn ${me.role==='adv'?'btn-tech':'btn-kraft'}" ${!me.role?'disabled':''} onclick="enterGame()">입장하기</button>
+        <div class="footer-link" onclick="resetGame()">전체 기록 초기화 (새 게임 준비)</div>
+        ${banner ? `<div class="hint" style="text-align:center; margin-top:10px;">${banner}</div>` : ''}
+      </div>
+    `;
+  },
+
+  wait(){
+    const roleLabel = me.role==='dev' ? '개발도상국' : '선진국';
+    return `
+      <div class="card" style="text-align:center;">
+        <div class="badge ${me.role}" style="display:inline-block; margin-bottom:14px;">${roleLabel} · ${me.group}조</div>
+        <h2 class="display">모두 준비됐나요?</h2>
+        <p class="desc">아직 아무 조도 시작하지 않았습니다. 모든 조가 들어왔다면 아래 버튼을 눌러주세요. 다른 조가 먼저 시작하면 이 화면은 자동으로 넘어갑니다.</p>
+        <label class="field-label">생산 시간 (초)</label>
+        <input type="number" id="durationInput" value="${DEFAULT_DURATION}">
+        <button class="btn btn-stamp" onclick="startGame()">🔔 지금 다 함께 시작하기</button>
+        <div class="footer-link" onclick="goSelect()">← 정보 다시 입력</div>
+      </div>
+    `;
+  },
+
+  production(){
+    return me.role==='dev' ? renderDev() : renderAdv();
+  },
+
+  'reveal-loading'(){
+    return `
+      <div class="card" style="text-align:center;">
+        <div class="spinner"></div>
+        <h2 class="display">생산 종료!</h2>
+        <p class="desc">모든 조의 결과를 모으는 중입니다...</p>
+      </div>
+    `;
+  },
+
+  reveal(){
+    const {devRows, advRows, devTotal, advTotal} = summarizeGroups();
+    const shirtValue = SHIRT_PRICE * devTotal;
+    const phoneValue = PHONE_PRICE * advTotal;
+    const maxValue = Math.max(shirtValue, phoneValue, 1);
+    const shirtBarPct = Math.max(4, Math.round(shirtValue/maxValue*100));
+    const phoneBarPct = Math.max(4, Math.round(phoneValue/maxValue*100));
+    const ratio = Math.round(PHONE_PRICE / SHIRT_PRICE);
+    const winnerText = shirtValue > phoneValue ? '🏆 개발도상국 승리!'
+      : phoneValue > shirtValue ? '🏆 선진국 승리!'
+      : '무승부!';
+    return `
+      <div class="card">
+        <table class="table">
+          <thead><tr><th>진영</th><th>조</th><th style="text-align:right;">개수</th></tr></thead>
+          <tbody>
+            ${devRows.map(r=>`<tr><td>개발도상국</td><td>${r.group}조 (${r.members}명)</td><td class="num" style="color:var(--kraft)">${r.count}</td></tr>`).join('')}
+            ${advRows.map(r=>`<tr><td>선진국</td><td>${r.group}조 (${r.members}명)</td><td class="num" style="color:var(--tech)">${r.count}</td></tr>`).join('')}
+          </tbody>
+        </table>
+        <div class="stamp-reveal">
+          <div class="price">티셔츠 1장 = ${fmtWon(SHIRT_PRICE)}</div>
+          <div class="item">"가위질만 하면 누구나 만들 수 있으니까요"</div>
+        </div>
+        <div class="stamp-reveal" style="animation-delay:.15s;">
+          <div class="price">핸드폰 1개 = ${fmtWon(PHONE_PRICE)}</div>
+          <div class="item">"대체 불가능한 디자인과 기술이 들어갔으니까요"</div>
+        </div>
+        <div class="value-bars">
+          <div class="value-bar-row">
+            <div class="vb-label"><span>개발도상국 총 가치 (${devTotal}장)</span><b style="color:var(--kraft)">${fmtWon(shirtValue)}</b></div>
+            <div class="value-bar-track"><div class="value-bar-fill dev" style="width:${shirtBarPct}%"></div></div>
+          </div>
+          <div class="value-bar-row">
+            <div class="vb-label"><span>선진국 총 가치 (${advTotal}개)</span><b style="color:var(--tech)">${fmtWon(phoneValue)}</b></div>
+            <div class="value-bar-track"><div class="value-bar-fill adv" style="width:${phoneBarPct}%"></div></div>
+          </div>
+        </div>
+        <div class="winner-banner">${winnerText}</div>
+        <div class="shock-box">
+          <div class="num">티셔츠 ${ratio}장</div>
+          <div class="txt">= 핸드폰 딱 1개</div>
+        </div>
+        <button class="btn btn-tech" onclick="goQuiz1()">학습 문제 풀어보기 →</button>
+        <div class="footer-link" onclick="resetGame(); goSelect();">← 문제 없이 새 게임 준비</div>
+      </div>
+    `;
+  },
+
+  quiz1(){
+    const itemsHtml = QUIZ1_ITEMS.map(item=>{
+      const val = q1Submitted ? (item.id==='high' ? q1HighVal : q1LowVal) : '';
+      const norm = val.replace(/\s+/g,'').replace(/상품$/,'');
+      const correct = q1Submitted ? norm===item.answer : null;
+      const cls = q1Submitted ? (correct?'correct':'incorrect') : '';
+      return `
+        <div class="quiz-item">
+          <div class="qi-desc" style="margin-bottom:10px;">${item.desc}</div>
+          <div class="blank-row">
+            <input type="text" class="quiz-blank ${cls}" id="q1-${item.id}" placeholder="다섯 글자로 입력해보세요" ${q1Submitted?'disabled':''} value="${escapeHtml(val)}">
+            <span class="blank-suffix">상품</span>
+          </div>
+          ${q1Submitted ? `<div class="hint" style="margin-top:0; margin-bottom:0;">${correct ? '정답이에요!' : '정답은 '+item.answer+' 상품이에요.'}</div>` : ''}
+        </div>
+      `;
+    }).join('');
+    return `
+      <div class="card">
+        <div class="eyebrow">개념 정리 · 문제 1</div>
+        <h2 class="display">고부가가치? 저부가가치?</h2>
+        <p class="desc">아래 설명을 읽고 빈칸에 알맞은 말을 적어보세요.</p>
+        ${itemsHtml}
+        ${!q1Submitted
+          ? `<button class="btn btn-tech" onclick="submitQ1()">제출하고 확인하기</button>`
+          : `<button class="btn btn-stamp" onclick="goQuiz2()">다음 문제로 →</button>`}
+      </div>
+    `;
+  },
+
+  quiz2(){
+    const answeredCount = Object.keys(quizAnswers).length;
+    const total = QUIZ2_ITEMS.length;
+    const itemsHtml = QUIZ2_ITEMS.map(item=>{
+      const a = quizAnswers[item.id];
+      let clsHigh = '', clsLow = '';
+      if(a){
+        if(item.answer==='high') clsHigh='correct'; else if(a.choice==='high') clsHigh='incorrect';
+        if(item.answer==='low') clsLow='correct'; else if(a.choice==='low') clsLow='incorrect';
+      }
+      return `
+        <div class="quiz-item">
+          <div class="qi-title">${item.title}</div>
+          <div class="qi-desc">${item.desc}</div>
+          <div class="btn-row">
+            <button class="quiz-opt ${clsHigh}" ${a?'disabled':''} onclick="answerQ2('${item.id}','high')">고부가가치</button>
+            <button class="quiz-opt ${clsLow}" ${a?'disabled':''} onclick="answerQ2('${item.id}','low')">저부가가치</button>
+          </div>
+          ${a ? `<div class="hint" style="margin-top:8px; margin-bottom:0;">${item.explain}</div>` : ''}
+        </div>
+      `;
+    }).join('');
+    return `
+      <div class="card">
+        <div class="eyebrow">개념 정리 · 문제 2</div>
+        <h2 class="display">사례로 구분해보기</h2>
+        <p class="desc">아래 상품이 고부가가치인지 저부가가치인지 클릭해서 골라보세요.</p>
+        ${itemsHtml}
+        ${answeredCount===total
+          ? `<button class="btn btn-stamp" onclick="goQuizResult()">결과 확인하기</button>`
+          : `<div class="hint" style="text-align:center;">${answeredCount}/${total} 문제를 풀었어요</div>`}
+      </div>
+    `;
+  },
+
+  'quiz2-result'(){
+    const score = Object.values(quizAnswers).filter(a=>a.correct).length;
+    const total = QUIZ2_ITEMS.length;
+    const message = score===total
+      ? '완벽해요! 고부가가치와 저부가가치의 차이를 정확히 구분했어요.'
+      : score>=total-1
+        ? '거의 다 맞았어요! 조금만 더 살펴보면 완벽해질 거예요.'
+        : '오늘 활동을 떠올리며 개념을 한 번 더 짚어보면 좋겠어요.';
+    return `
+      <div class="card" style="text-align:center;">
+        <div class="eyebrow">학습 마무리</div>
+        <div class="count-hero">
+          <div class="num adv">${score}/${total}</div>
+          <div class="label">정답 개수</div>
+        </div>
+        <p class="desc">${message}</p>
+        <button class="btn btn-kraft" onclick="resetGame(); goSelect();">처음으로 (새 게임 준비)</button>
+      </div>
+    `;
+  }
+};
+
+function renderDev(){
+  const pct = Math.round((shirtProgress/SHIRT_STEPS)*100);
+  return `
+    <div class="card">
+      <div class="timer-bar">
+        <span class="timer" id="timer">--:--</span>
+        <span class="badge dev">개발도상국 · ${me.group}조</span>
+      </div>
+      <div class="count-hero">
+        <div class="num dev">${shirtCount}</div>
+        <div class="label">완성된 종이 티셔츠 (개)</div>
+      </div>
+      ${shirtSvg(shirtProgress, SHIRT_STEPS)}
+      <div class="progress-track"><div class="progress-fill dev" style="width:${pct}%"></div></div>
+      <div class="hint" style="text-align:center;">가위질 ${shirtProgress}/${SHIRT_STEPS}</div>
+      <button class="btn btn-kraft" onclick="cutShirt()">✂️ 종이 자르기</button>
+      <div class="hint" style="text-align:center; margin-top:14px;">가위질 ${SHIRT_STEPS}번 = 티셔츠 1장</div>
+    </div>
+  `;
+}
+
+function renderAdv(){
+  const stepsHtml = PHONE_STEP_LABELS.map((label,i)=>{
+    const cls = i<phoneStep?'done':(i===phoneStep?'active':'');
+    return `<div class="step-dot ${cls}">${i+1}. ${label}</div>`;
+  }).join('');
+
+  let stepBody = '';
+  if(packagingAnim){
+    stepBody = `
+      ${closedBoxSvg()}
+      <div class="hint" style="text-align:center; margin-top:6px;">포장 완료! 다음 핸드폰을 준비할게요...</div>
+    `;
+  } else if(phoneStep===0){
+    stepBody = `
+      ${phoneMock(false,false,false)}
+      <label class="field-label">브랜드 로고 문구를 적어보세요</label>
+      <input type="text" id="logoInput" maxlength="14" placeholder="예: NOVA" value="${escapeHtml(logoText)}" oninput="onLogoInput(this.value)">
+      ${logoError ? `<div class="hint" style="color:var(--stamp); margin-top:-8px; margin-bottom:14px;">${logoError}</div>` : ''}
+      <button class="btn btn-tech" id="logoNextBtn" ${logoText.trim()?'':'disabled'} onclick="confirmLogoStep()">로고 확정하고 다음 단계로</button>
+    `;
+  } else if(phoneStep===1){
+    stepBody = `
+      ${phoneMock(true,false,true)}
+      <div class="hint" style="text-align:center;">홈 화면의 9칸을 모두 눌러 앱 아이콘을 채워야 다음 단계로 넘어갈 수 있어요</div>
+      <div style="text-align:center; margin-bottom:14px; font-size:13px; color:#9C968A;">채운 아이콘: <b style="color:var(--tech)">${uiElements.length}</b> / ${SLOT_POS.length}</div>
+      <div class="btn-row" style="margin-bottom:10px;">
+        <button class="btn btn-ghost" onclick="resetDesign()">다시 배치하기</button>
+      </div>
+      <button class="btn btn-tech" ${uiElements.length<MIN_UI_ELEMENTS?'disabled':''} onclick="confirmDesignStep()">디자인 완료, 다음 단계로</button>
+    `;
+  } else if(phoneStep===2){
+    stepBody = `
+      ${phoneMock(true,true,false)}
+      <div class="btn-row" style="margin-bottom:10px;">
+        <button class="btn btn-tech" onclick="addCamera()">📷 카메라 렌즈 추가</button>
+      </div>
+      <button class="btn btn-tech" ${cameraAdded?'':'disabled'} onclick="confirmCameraStep()">다음 단계로</button>
+    `;
+  } else {
+    stepBody = `
+      ${phoneMock(true,true,false)}
+      ${openBoxSvg()}
+      <div class="hint" style="text-align:center;">완성된 핸드폰을 상자에 담아 포장하세요</div>
+      <button class="btn btn-stamp" onclick="packagePhone()">🎁 포장해서 완성하기</button>
+    `;
+  }
+
+  return `
+    <div class="card">
+      <div class="timer-bar">
+        <span class="timer" id="timer">--:--</span>
+        <span class="badge adv">선진국 · ${me.group}조</span>
+      </div>
+      <div class="count-hero">
+        <div class="num adv">${phoneCount}</div>
+        <div class="label">완성된 프리미엄 핸드폰 (개)</div>
+      </div>
+      <div class="steps">${stepsHtml}</div>
+      ${stepBody}
+    </div>
+  `;
+}
+
+// ---------- 네비게이션 ----------
+function stopTimers(){
+  if(tickInterval){ clearInterval(tickInterval); tickInterval=null; }
+  if(pollInterval){ clearInterval(pollInterval); pollInterval=null; }
+}
+function goSelect(){ stopTimers(); screen='select'; render(); }
+function pickRole(role){ me.role = role; render(); }
+
+async function enterGame(){
+  const val = document.getElementById('groupInput').value.trim();
+  if(!val) return;
+  me.group = val;
+  me.studentId = Math.random().toString(36).slice(2,9);
+  shirtProgress=0; shirtCount=0;
+  phoneStep=0; phoneCount=0; logoText=''; logoError=''; uiElements=[]; cameraAdded=false; packagingAnim=false;
+  q1Submitted=false; q1HighVal=''; q1LowVal=''; quizAnswers={};
+  screen='wait';
+  render();
+  pollInterval = setInterval(pollForStart, 1500);
+  pollForStart();
+}
+
+async function pollForStart(){
+  try{
+    const res = await window.storage.get('game:config', true);
+    if(!res) return;
+    const cfg = JSON.parse(res.value);
+    gameConfig = cfg;
+    const remaining = Math.ceil((cfg.startAt + cfg.duration*1000 - Date.now())/1000);
+    stopTimers();
+    if(remaining <= 0){
+      goToReveal();
+      return;
+    }
+    screen='production';
+    render();
+    startProductionTick();
+  }catch(e){
+    // 아직 시작 전
+  }
+}
+
+function startProductionTick(){
+  const update = ()=>{
+    const remaining = Math.ceil((gameConfig.startAt + gameConfig.duration*1000 - Date.now())/1000);
+    const el = document.getElementById('timer');
+    if(el) el.textContent = fmtTime(remaining);
+    if(remaining <= 0){
+      stopTimers();
+      goToReveal();
+    }
+  };
+  tickInterval = setInterval(update, 250);
+  update();
+}
+
+async function saveMyProgress(){
+  try{
+    const count = me.role==='dev' ? shirtCount : phoneCount;
+    await window.storage.set(`member:${me.role}:${me.group}:${me.studentId}`, JSON.stringify({role:me.role, group:me.group, studentId:me.studentId, count, updatedAt:Date.now()}), true);
+  }catch(e){ /* 저장 실패해도 게임은 계속 진행 */ }
+}
+
+function refreshTimerLabel(){
+  const t = document.getElementById('timer');
+  if(t && gameConfig){
+    const remaining = Math.ceil((gameConfig.startAt + gameConfig.duration*1000 - Date.now())/1000);
+    t.textContent = fmtTime(remaining);
+  }
+}
+
+// ---------- 개발도상국: 티셔츠 ----------
+function cutShirt(){
+  shirtProgress++;
+  if(shirtProgress >= SHIRT_STEPS){ shirtProgress = 0; shirtCount++; saveMyProgress(); }
+  render();
+  refreshTimerLabel();
+}
+
+// ---------- 선진국: 핸드폰 ----------
+function onLogoInput(val){
+  logoText = val;
+  logoError = '';
+  const preview = document.getElementById('logoPreview');
+  if(preview) preview.textContent = val.trim() ? val : '로고 문구';
+  const btn = document.getElementById('logoNextBtn');
+  if(btn) btn.disabled = !val.trim();
+}
+
+async function confirmLogoStep(){
+  const trimmed = logoText.trim();
+  if(!trimmed) return;
+  const norm = trimmed.replace(/\s+/g,'').toLowerCase();
+  logoError = '';
+
+  let existing = null;
+  try{
+    existing = await window.storage.get(`logo:${norm}`, true);
+  }catch(e){
+    existing = null; // 존재하지 않는 키 → 사용 가능한 로고
+  }
+
+  if(existing){
+    logoError = '내용이 겹칩니다.';
+    render();
+    refreshTimerLabel();
+    return;
+  }
+
+  try{
+    await window.storage.set(`logo:${norm}`, JSON.stringify({group: me.group, text: trimmed}), true);
+  }catch(e){
+    // 저장에 실패해도 진행은 막지 않음
+  }
+  phoneStep = 1;
+  render();
+  refreshTimerLabel();
+}
+
+function toggleSlot(i){
+  if(phoneStep !== 1) return;
+  const idx = uiElements.indexOf(i);
+  if(idx >= 0){ uiElements.splice(idx,1); }
+  else { uiElements.push(i); }
+  render();
+  refreshTimerLabel();
+}
+
+function resetDesign(){
+  uiElements = [];
+  render();
+  refreshTimerLabel();
+}
+
+function confirmDesignStep(){
+  if(uiElements.length < MIN_UI_ELEMENTS) return;
+  phoneStep = 2;
+  render();
+  refreshTimerLabel();
+}
+
+function addCamera(){
+  cameraAdded = true;
+  render();
+  refreshTimerLabel();
+}
+
+function confirmCameraStep(){
+  if(!cameraAdded) return;
+  phoneStep = 3;
+  render();
+  refreshTimerLabel();
+}
+
+function packagePhone(){
+  packagingAnim = true;
+  render();
+  refreshTimerLabel();
+  setTimeout(()=>{
+    phoneCount++;
+    saveMyProgress();
+    phoneStep = 0; logoText=''; logoError=''; uiElements=[]; cameraAdded=false; packagingAnim=false;
+    render();
+    refreshTimerLabel();
+  }, 900);
+}
+
+// ---------- 퀴즈 ----------
+function goQuiz1(){ stopTimers(); screen='quiz1'; render(); }
+function submitQ1(){
+  q1HighVal = document.getElementById('q1-high').value;
+  q1LowVal = document.getElementById('q1-low').value;
+  q1Submitted = true;
+  render();
+}
+function goQuiz2(){ screen='quiz2'; render(); }
+function answerQ2(id, choice){
+  if(quizAnswers[id]) return;
+  const item = QUIZ2_ITEMS.find(i=>i.id===id);
+  quizAnswers[id] = { choice, correct: choice===item.answer };
+  render();
+}
+function goQuizResult(){ screen='quiz2-result'; render(); }
+
+// ---------- 시작 / 초기화 ----------
+async function startGame(){
+  const duration = parseInt(document.getElementById('durationInput').value, 10) || DEFAULT_DURATION;
+  gameConfig = { startAt: Date.now(), duration };
+  try{
+    await window.storage.set('game:config', JSON.stringify(gameConfig), true);
+  }catch(e){ /* 저장 실패해도 이 기기는 계속 진행 */ }
+  stopTimers();
+  screen='production';
+  render();
+  startProductionTick();
+}
+
+async function resetGame(){
+  banner = '초기화 중...';
+  render();
+  try{
+    const list = await window.storage.list('member:', true);
+    if(list && list.keys){
+      for(const key of list.keys){ try{ await window.storage.delete(key, true); }catch(e){} }
+    }
+    const logoList = await window.storage.list('logo:', true);
+    if(logoList && logoList.keys){
+      for(const key of logoList.keys){ try{ await window.storage.delete(key, true); }catch(e){} }
+    }
+    try{ await window.storage.delete('game:config', true); }catch(e){}
+    latestGroups = {};
+    gameConfig = null;
+    q1Submitted=false; q1HighVal=''; q1LowVal=''; quizAnswers={};
+    banner = '초기화 완료! 모든 조가 새로 입장하면 됩니다.';
+  }catch(e){
+    banner = '초기화 중 일부 오류가 있었어요. 그래도 새 게임은 진행할 수 있어요.';
+  }
+  render();
+}
+
+// ---------- 결과 집계 & 공개 (모든 기기 공통) ----------
+function summarizeGroups(){
+  const groupMap = {};
+  Object.values(latestGroups).forEach(g=>{
+    const key = `${g.role}:${g.group}`;
+    if(!groupMap[key]) groupMap[key] = { role:g.role, group:g.group, count:0, members:0 };
+    groupMap[key].count += g.count;
+    groupMap[key].members += 1;
+  });
+  const devRows=[], advRows=[];
+  let devTotal=0, advTotal=0;
+  Object.values(groupMap).forEach(r=>{
+    if(r.role==='dev'){ devRows.push(r); devTotal += r.count; }
+    else if(r.role==='adv'){ advRows.push(r); advTotal += r.count; }
+  });
+  devRows.sort((a,b)=> a.group.localeCompare(b.group));
+  advRows.sort((a,b)=> a.group.localeCompare(b.group));
+  return { devRows, advRows, devTotal, advTotal };
+}
+
+async function goToReveal(){
+  screen = 'reveal-loading';
+  render();
+  await new Promise(r=>setTimeout(r, 1200));
+  try{
+    const list = await window.storage.list('member:', true);
+    const next = {};
+    if(list && list.keys){
+      for(const key of list.keys){
+        try{
+          const res = await window.storage.get(key, true);
+          if(res){ next[key] = JSON.parse(res.value); }
+        }catch(e){ /* skip */ }
+      }
+    }
+    latestGroups = next;
+  }catch(e){
+    latestGroups = { me: { role: me.role, group: me.group, count: me.role==='dev'?shirtCount:phoneCount } };
+  }
+  screen = 'reveal';
+  render();
+}
+
+// ---------- 시작 ----------
+render();
+</script>
+</body>
+</html>
